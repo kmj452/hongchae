@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <!-- 파일 or 패키지 불러오기 -->
+    <!-- <py-env> -->
+        <!-- - numpy -->
+        <!-- - matplotlib -->
+        <!-- - paths: --> <!-- 방법 1. 파이썬 파일 경로 사용해서 불러올 수 있음 -->
+            <!-- - ./main.py -->
+    <!-- </py-env> -->
+    <py-config type="json">
+        {
+          "packages": ["numpy", "matplotlib"]
+        }
+      </py-config>
+
+    <title>Test Web</title>
+</head>
+<!-- 인라인 코드 작성-->
+<!-- <py-repl></py-repl> -->
+<body>
+    <h1>Test</h1>
+    <!-- 방법 2. <py-script src="./main.py"></py-script> -> 파이썬 파일 가져오기 -->
+    <div id="plot"></div>
+    <py-script>
+        import matplotlib.pyplot as plt
+        import numpy as np
+        x = [1,2,3,4,5,6,7,8,9,10]
+        y = np.random.randn(10)
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        
+
+        from js import document
+        import io
+        from base64 import b64encode
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        img_str = 'data:image/png;base64,' + b64encode(buf.read()).decode('UTF-8')
+        plot_div = document.getElementById('plot')
+        plot_div.innerHTML = f'<img src="{img_str}" />'
+    </py-script>
+</body>
+</html>
