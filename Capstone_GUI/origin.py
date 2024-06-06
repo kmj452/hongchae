@@ -76,9 +76,6 @@ class App:
                 # OpenCV 창에 프레임 표시
                 cv2.imshow("Webcam", frame)
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):  # 'q' 키를 눌렀을 때 창 닫기
-                    self.close_opencv_window(None)
-
         if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
             self.window.after(self.delay, self.update_opencv)  # OpenCV 창이 열려 있으면 업데이트 계속
 
