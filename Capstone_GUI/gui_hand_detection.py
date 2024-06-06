@@ -41,7 +41,7 @@ class App:
         self.canvas = tk.Canvas(window, width=640, height=480)  # 고정된 크기의 캔버스
         self.canvas.pack()
 
-        self.label = tk.Label(window, text="Hello World", width=10, height=5)
+        self.label = tk.Label(window, text="손 감지", width=10, height=5)
         self.label.pack()
 
         self.button = tk.Button(window, text="버튼", padx=15, pady=15, fg="white", bg="black", command=self.start_detection)
