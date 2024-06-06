@@ -10,9 +10,8 @@ hands = mp_hands.Hands(max_num_hands=10)
 
 # 두 랜드마크 간의 거리 계산 함수
 def calculate_distance(landmark1, landmark2, width, height):
-    x1, y1 = int(landmark1.x * width)
-    x2, y2 = int(landmark2.x * width)
-    y2 = int(landmark2.y * height)
+    x1, y1 = int(landmark1.x * width), int(landmark1.y * height)
+    x2, y2 = int(landmark2.x * width), int(landmark2.y * height)
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 # 손가락 끝 부분에 동그라미를 그리는 함수
@@ -39,19 +38,17 @@ class App:
         self.vid = cv2.VideoCapture(self.video_source)
 
         # tkinter 캔버스 설정
-        self.canvas = tk.Canvas(window, width=self.vid.get(cv2.CAP_PROP_FRAME_WIDTH),
-                                     height=self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.canvas = tk.Canvas(window, width=640, height=480)  # 고정된 크기의 캔버스
         self.canvas.pack()
 
         self.label = tk.Label(window, text="Hello World", width=10, height=5)
         self.label.pack()
 
-        self.button = tk.Button(window, text="버튼", padx=15, pady=15, fg="black", bg="black", command=self.start_detection)
+        self.button = tk.Button(window, text="버튼", padx=15, pady=15, fg="white", bg="black", command=self.start_detection)
         self.button.pack()
 
         self.delay = 15
         self.detecting = False
-        self.update()
 
         self.window.bind('<q>', self.close_opencv_window)  # 'q' 키를 눌렀을 때 OpenCV 창 닫기
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)  # 창 닫기 버튼(X)을 눌렀을 때 on_closing 호출
@@ -62,9 +59,10 @@ class App:
         self.detecting = True
         print("버튼 클릭")
         self.button.config(text="성공")
+        self.update_opencv()
 
-    # 웹캠에서 프레임을 읽고 업데이트하는 함수
-    def update(self):
+    # OpenCV 창을 업데이트하는 함수
+    def update_opencv(self):
         if self.detecting:
             ret, frame = self.vid.read()
             if ret:
@@ -75,17 +73,16 @@ class App:
                     for hand_landmarks in results.multi_hand_landmarks:
                         frame = draw_finger_circles(frame, hand_landmarks.landmark)
 
-                self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
-                self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
-
                 # OpenCV 창에 프레임 표시
                 cv2.imshow("Webcam", frame)
 
-        self.window.after(self.delay, self.update)
+        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
+            self.window.after(self.delay, self.update_opencv)  # OpenCV 창이 열려 있으면 업데이트 계속
 
     # 'q' 키를 눌렀을 때 호출되는 함수
     def close_opencv_window(self, event):
-        cv2.destroyWindow("Webcam")  # OpenCV 창 닫기
+        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
+            cv2.destroyWindow("Webcam")  # OpenCV 창 닫기
 
     # 창 닫기 버튼(X)을 눌렀을 때 호출되는 함수
     def on_closing(self):
