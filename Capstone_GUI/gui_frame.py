@@ -20,6 +20,15 @@ from utils.torch_utils import select_device
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=10)
 
+# MediaPipe Face Mesh 초기화
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(
+    max_num_faces=1,
+    refine_landmarks=True,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
+
 # YOLOv5 모델 로드
 model_path = "C:\\Users\\toror\\Downloads\\hongchae-parkhyun\\yolov5\\runs\\train\\exp\\weights\\best.pt"
 device = select_device('cpu')
@@ -69,7 +78,35 @@ def blur_fingerprint_area(image, landmarks):
         x_start, y_start = max(0, x-blur_size), max(0, y-blur_size)
         x_end, y_end = min(w, x+blur_size), min(h, y+blur_size)
         if x_start < x_end and y_start < y_end:
-            image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 15)
+            image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y-end, x_start:x-end], ksize, 15)
+    
+    return image
+
+def calculate_finger_length(landmarks, width, height):
+    finger_lengths = []
+    for finger_indices in [(4, 3, 2), (8, 7, 6), (12, 11, 10), (16, 15, 14), (20, 19, 18)]:
+        finger_length = 0
+        for i in range(len(finger_indices) - 1):
+            finger_length += calculate_distance(landmarks[finger_indices[i]], landmarks[finger_indices[i+1]], width, height)
+        finger_lengths.append(finger_length)
+    return max(finger_lengths)
+
+def blur_iris_area(image, iris_landmarks):
+    h, w, _ = image.shape
+    x_min = min(int(landmark.x * w) for landmark in iris_landmarks)
+    y_min = min(int(landmark.y * h) for landmark in iris_landmarks)
+    x_max = max(int(landmark.x * w) for landmark in iris_landmarks)
+    y_max = max(int(landmark.y * h) for landmark in iris_landmarks)
+    
+    blur_radius = int(max(2, min(5, (x_max - x_min) // 42)))
+    if blur_radius % 2 == 0:
+        blur_radius += 1
+    ksize = (blur_radius, blur_radius)
+    x_start, y_start = max(0, x_min - blur_radius), max(0, y_min - blur_radius)
+    x_end, y_end = min(w, x_max + blur_radius), min(h, y_max + blur_radius)
+    
+    if x_start < x_end and y_start < y_end:
+        image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 15)
     
     return image
 
@@ -100,6 +137,10 @@ class App:
         self.video_source = 0
         self.vid = cv2.VideoCapture(self.video_source)
 
+        if not self.vid.isOpened():
+            print("Error: Could not open video source.")
+            sys.exit()
+
         # 상단 텍스트 라벨
         self.label = tk.Label(window, text="인식&블러처리", font=("Arial", 30))
         self.label.pack(pady=10)
@@ -123,6 +164,10 @@ class App:
         # 버튼 4: Eye Blurring
         self.button4 = tk.Button(self.button_frame, text="Eye Blurring", padx=15, pady=15, command=self.start_eye_blurring)
         self.button4.grid(row=0, column=3, padx=10)
+
+        # 버튼 5: Hand & Eye Blurring
+        self.button5 = tk.Button(self.button_frame, text="Hand & Eye Blurring", padx=15, pady=15, command=self.start_hand_eye_blurring)
+        self.button5.grid(row=1, column=0, columnspan=4, padx=10, pady=10)
 
         # tkinter 캔버스 설정
         self.canvas = tk.Canvas(window, width=640, height=480)
@@ -163,6 +208,11 @@ class App:
         self.detecting = True
         self.window.after(self.delay, self.update_opencv_eye_blurring)
         print("Eye Blurring 클릭")
+
+    def start_hand_eye_blurring(self):
+        self.detecting = True
+        self.window.after(self.delay, self.update_opencv_hand_eye_blurring)
+        print("Hand & Eye Blurring 클릭")
 
     def update_opencv_hand_detection(self):
         if self.detecting:
@@ -206,38 +256,27 @@ class App:
         if self.detecting:
             ret, frame = self.vid.read()
             if ret:
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                eyes = eye_cascade.detectMultiScale(gray, 1.3, 5)
+                # 성능을 향상시키기 위해 이미지를 쓰지 않고 참조합니다.
+                frame.flags.writeable = False
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                for (x, y, w, h) in eyes:
-                    roi_color = frame[y:y+h, x:x+w]
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                # MediaPipe Face Mesh 처리를 합니다.
+                results = face_mesh.process(frame_rgb)
 
-                    # YOLOv5를 사용하여 추가 분석 수행
-                    img = cv2.resize(roi_color, (640, 640))
-                    img = img[:, :, ::-1].transpose(2, 0, 1)
-                    img = np.ascontiguousarray(img)
+                # 이미지에 출력을 그리기 위해 다시 이미지를 BGR로 변환합니다.
+                frame.flags.writeable = True
+                frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-                    img = torch.from_numpy(img).to(device)
-                    img = img.float()
-                    img /= 255.0
-                    if img.ndimension() == 3:
-                        img = img.unsqueeze(0)
-
-                    # 추론
-                    pred = model(img, augment=False, visualize=False)
-                    pred = non_max_suppression(pred, 0.25, 0.45, None, False, max_det=1000)
-
-                    # 바운딩 박스 그리기 및 객체 인식 확인
-                    for i, det in enumerate(pred):
-                        if len(det):
-                            det[:, :4] = scale_coords(img.shape[2:], det[:, :4], roi_color.shape).round()
-
-                            for *xyxy, conf, cls in reversed(det):
-                                if conf > 0.5:
-                                    cv2.rectangle(roi_color, (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3])), (0, 255, 0), 2)
-                                    label = f"Eye: {conf:.2f}"
-                                    cv2.putText(roi_color, label, (int(xyxy[0]), int(xyxy[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                if results.multi_face_landmarks:
+                    for face_landmarks in results.multi_face_landmarks:
+                        # 홍채 영역을 강조하기 위해 주요 랜드마크를 표시합니다.
+                        iris_landmarks = [
+                            face_landmarks.landmark[i] for i in range(468, 478)
+                        ]
+                        for landmark in iris_landmarks:
+                            x = int(landmark.x * frame.shape[1])
+                            y = int(landmark.y * frame.shape[0])
+                            cv2.circle(frame, (x, y), 2, (0, 0, 255), -1)
 
                 cv2.imshow("Eye Detection", frame)
 
@@ -319,8 +358,46 @@ class App:
         if cv2.getWindowProperty("Eye Blurring", cv2.WND_PROP_VISIBLE) >= 1:
             self.window.after(self.delay, self.update_opencv_eye_blurring)
 
+    def update_opencv_hand_eye_blurring(self):
+        if self.detecting:
+            ret, frame = self.vid.read()
+            if ret:
+                # 성능을 향상시키기 위해 이미지를 쓰지 않고 참조합니다.
+                frame.flags.writeable = False
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                # MediaPipe Face Mesh 처리를 합니다.
+                face_results = face_mesh.process(frame_rgb)
+
+                # MediaPipe Hands 처리를 합니다.
+                hand_results = hands.process(frame_rgb)
+
+                # 이미지에 출력을 그리기 위해 다시 이미지를 BGR로 변환합니다.
+                frame.flags.writeable = True
+                frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
+                if face_results.multi_face_landmarks:
+                    for face_landmarks in face_results.multi_face_landmarks:
+                        # 홍채 영역을 강조하기 위해 주요 랜드마크를 표시합니다.
+                        iris_landmarks = [
+                            face_landmarks.landmark[i] for i in range(468, 478)
+                        ]
+                        frame = blur_iris_area(frame, iris_landmarks)
+
+                if hand_results.multi_hand_landmarks:
+                    for hand_landmarks in hand_results.multi_hand_landmarks:
+                        frame = blur_fingerprint_area(frame, hand_landmarks.landmark)
+
+                cv2.imshow("Hand & Eye Blurring", frame)
+
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    self.close_opencv_window(None)
+
+        if cv2.getWindowProperty("Hand & Eye Blurring", cv2.WND_PROP_VISIBLE) >= 1:
+            self.window.after(self.delay, self.update_opencv_hand_eye_blurring)
+
     def close_opencv_window(self, event):
-        windows = ["Hand Detection", "Hand Blurring", "Eye Detection", "Eye Blurring"]
+        windows = ["Hand Detection", "Hand Blurring", "Eye Detection", "Eye Blurring", "Hand & Eye Blurring"]
         for win in windows:
             if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) >= 1:
                 cv2.destroyWindow(win)
