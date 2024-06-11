@@ -130,30 +130,39 @@ class App:
 
         self.delay = 15
         self.detecting = False
+        self.update_webcam()
 
         self.window.bind('<q>', self.close_opencv_window)
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.window.mainloop()
 
+    def update_webcam(self):
+        ret, frame = self.vid.read()
+        if ret:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self.photo = ImageTk.PhotoImage(image = Image.fromarray(frame))
+            self.canvas.create_image(0, 0, image = self.photo, anchor = tk.NW)
+        self.window.after(self.delay, self.update_webcam)
+
     def start_hand_detection(self):
         self.detecting = True
+        self.window.after(self.delay, self.update_opencv_hand_detection)
         print("Hand Detection 클릭")
-        self.update_opencv_hand_detection()
 
     def start_hand_blurring(self):
         self.detecting = True
+        self.window.after(self.delay, self.update_opencv_hand_blurring)
         print("Hand Blurring 클릭")
-        self.update_opencv_hand_blurring()
 
     def start_eye_detection(self):
         self.detecting = True
+        self.window.after(self.delay, self.update_opencv_eye_detection)
         print("Eye Detection 클릭")
-        self.update_opencv_eye_detection()
 
     def start_eye_blurring(self):
         self.detecting = True
+        self.window.after(self.delay, self.update_opencv_eye_blurring)
         print("Eye Blurring 클릭")
-        self.update_opencv_eye_blurring()
 
     def update_opencv_hand_detection(self):
         if self.detecting:
@@ -166,12 +175,12 @@ class App:
                     for hand_landmarks in results.multi_hand_landmarks:
                         frame = draw_finger_circles(frame, hand_landmarks.landmark)
 
-                cv2.imshow("Webcam", frame)
+                cv2.imshow("Hand Detection", frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.close_opencv_window(None)
 
-        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
+        if cv2.getWindowProperty("Hand Detection", cv2.WND_PROP_VISIBLE) >= 1:
             self.window.after(self.delay, self.update_opencv_hand_detection)
 
     def update_opencv_hand_blurring(self):
@@ -185,12 +194,12 @@ class App:
                     for hand_landmarks in results.multi_hand_landmarks:
                         frame = blur_fingerprint_area(frame, hand_landmarks.landmark)
 
-                cv2.imshow("Webcam", frame)
+                cv2.imshow("Hand Blurring", frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.close_opencv_window(None)
 
-        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
+        if cv2.getWindowProperty("Hand Blurring", cv2.WND_PROP_VISIBLE) >= 1:
             self.window.after(self.delay, self.update_opencv_hand_blurring)
 
     def update_opencv_eye_detection(self):
@@ -230,12 +239,12 @@ class App:
                                     label = f"Eye: {conf:.2f}"
                                     cv2.putText(roi_color, label, (int(xyxy[0]), int(xyxy[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-                cv2.imshow("Webcam", frame)
+                cv2.imshow("Eye Detection", frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.close_opencv_window(None)
 
-        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
+        if cv2.getWindowProperty("Eye Detection", cv2.WND_PROP_VISIBLE) >= 1:
             self.window.after(self.delay, self.update_opencv_eye_detection)
 
     def update_opencv_eye_blurring(self):
@@ -302,22 +311,24 @@ class App:
                                     cv2.imwrite(yolo_img_path, roi_color)
                                     self.detect_count += 1
 
-                cv2.imshow("Webcam", frame)
+                cv2.imshow("Eye Blurring", frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.close_opencv_window(None)
 
-        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
+        if cv2.getWindowProperty("Eye Blurring", cv2.WND_PROP_VISIBLE) >= 1:
             self.window.after(self.delay, self.update_opencv_eye_blurring)
 
     def close_opencv_window(self, event):
-        if cv2.getWindowProperty("Webcam", cv2.WND_PROP_VISIBLE) >= 1:
-            cv2.destroyWindow("Webcam")
+        windows = ["Hand Detection", "Hand Blurring", "Eye Detection", "Eye Blurring"]
+        for win in windows:
+            if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) >= 1:
+                cv2.destroyWindow(win)
 
     def on_closing(self):
         if self.vid.isOpened():
             self.vid.release()
-        cv2.destroyAllWindows()
+        self.close_opencv_window(None)
         self.window.destroy()
 
     def __del__(self):
