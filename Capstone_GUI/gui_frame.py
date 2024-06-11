@@ -78,7 +78,7 @@ def blur_fingerprint_area(image, landmarks):
         x_start, y_start = max(0, x-blur_size), max(0, y-blur_size)
         x_end, y_end = min(w, x+blur_size), min(h, y+blur_size)
         if x_start < x_end and y_start < y_end:
-            image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y-end, x_start:x-end], ksize, 15)
+            image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 15)
     
     return image
 
@@ -175,6 +175,8 @@ class App:
 
         self.delay = 15
         self.detecting = False
+        self.frame_count = 0  # frame_count 초기화
+        self.detect_count = 0  # detect_count 초기화
         self.update_webcam()
 
         self.window.bind('<q>', self.close_opencv_window)
