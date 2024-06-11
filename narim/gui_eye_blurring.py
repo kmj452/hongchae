@@ -160,6 +160,13 @@ class App:
 
         self.window.after(self.delay, self.update)
 
+    
+    # 'q' 키를 눌렀을 때 호출되는 함수
+    def close_opencv_window(self, event):
+        print("Closing OpenCV window")
+        self.detecting = False
+        cv2.destroyAllWindows()  # OpenCV 창 닫기
+
     # 창 닫기 버튼(X)을 눌렀을 때 호출되는 함수
     def on_closing(self):
         self.detecting = False
