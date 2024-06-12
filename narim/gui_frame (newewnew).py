@@ -142,7 +142,7 @@ class App:
             sys.exit()
 
         # 상단 텍스트 라벨
-        self.label = tk.Label(window, text="인식&블러처리", font=("Arial", 30))
+        self.label = tk.Label(window, text="Iris & Fingerprint Area Detection and Blurring", font=("Arial", 30))
         self.label.pack(pady=10)
 
         # 버튼 프레임 설정
@@ -261,20 +261,40 @@ class App:
                 frame.flags.writeable = False
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+                # MediaPipe Face Mesh 처리를 합니다.
                 results = face_mesh.process(frame_rgb)
 
+                # 이미지에 출력을 그리기 위해 다시 이미지를 BGR로 변환합니다.
                 frame.flags.writeable = True
                 frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
                 if results.multi_face_landmarks:
                     for face_landmarks in results.multi_face_landmarks:
-                        iris_landmarks = [
-                            face_landmarks.landmark[i] for i in range(468, 478)
+                        # 왼쪽 눈의 랜드마크
+                        left_eye_landmarks = [
+                            face_landmarks.landmark[i] for i in [474, 475, 476, 477]
                         ]
-                        for landmark in iris_landmarks:
-                            x = int(landmark.x * frame.shape[1])
-                            y = int(landmark.y * frame.shape[0])
-                            cv2.circle(frame, (x, y), 2, (0, 0, 255), -1)
+                        # 오른쪽 눈의 랜드마크
+                        right_eye_landmarks = [
+                            face_landmarks.landmark[i] for i in [469, 470, 471, 472]
+                        ]
+                        
+                        # 왼쪽 눈의 최소 및 최대 x, y 좌표를 구합니다.
+                        min_x_left = min([int(landmark.x * frame.shape[1]) for landmark in left_eye_landmarks])
+                        max_x_left = max([int(landmark.x * frame.shape[1]) for landmark in left_eye_landmarks])
+                        min_y_left = min([int(landmark.y * frame.shape[0]) for landmark in left_eye_landmarks])
+                        max_y_left = max([int(landmark.y * frame.shape[0]) for landmark in left_eye_landmarks])
+                        
+                        # 오른쪽 눈의 최소 및 최대 x, y 좌표를 구합니다.
+                        min_x_right = min([int(landmark.x * frame.shape[1]) for landmark in right_eye_landmarks])
+                        max_x_right = max([int(landmark.x * frame.shape[1]) for landmark in right_eye_landmarks])
+                        min_y_right = min([int(landmark.y * frame.shape[0]) for landmark in right_eye_landmarks])
+                        max_y_right = max([int(landmark.y * frame.shape[0]) for landmark in right_eye_landmarks])
+
+                        # 왼쪽 눈에 빨간색 사각형으로 마킹합니다.
+                        cv2.rectangle(frame, (min_x_left, min_y_left), (max_x_left, max_y_left), (0, 0, 255), 1)
+                        # 오른쪽 눈에 빨간색 사각형으로 마킹합니다.
+                        cv2.rectangle(frame, (min_x_right, min_y_right), (max_x_right, max_y_right), (0, 0, 255), 1)
 
                 cv2.imshow("Eye Detection", frame)
 
