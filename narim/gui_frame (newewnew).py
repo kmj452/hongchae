@@ -23,7 +23,7 @@ hands = mp_hands.Hands(max_num_hands=10)
 # MediaPipe Face Mesh 초기화
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
-    max_num_faces=1,
+    max_num_faces=5,
     refine_landmarks=True,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
@@ -78,7 +78,7 @@ def blur_fingerprint_area(image, landmarks):
         x_start, y_start = max(0, x-blur_size), max(0, y-blur_size)
         x_end, y_end = min(w, x+blur_size), min(h, y+blur_size)
         if x_start < x_end and y_start < y_end:
-            image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 15)
+            image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 31)
     
     return image
 
@@ -106,7 +106,7 @@ def blur_iris_area(image, iris_landmarks):
     x_end, y_end = min(w, x_max + blur_radius), min(h, y_max + blur_radius)
     
     if x_start < x_end and y_start < y_end:
-        image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 15)
+        image[y_start:y_end, x_start:x_end] = cv2.GaussianBlur(image[y_start:y_end, x_start:x_end], ksize, 29)
     
     return image
 

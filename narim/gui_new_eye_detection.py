@@ -6,7 +6,7 @@ import sys
 # MediaPipe 솔루션을 초기화합니다.
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
-    max_num_faces=1,
+    max_num_faces=5,
     refine_landmarks=True,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
